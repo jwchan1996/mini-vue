@@ -26,7 +26,7 @@
 
 ![image](https://cn.vuejs.org/images/data.png)
 
-下面是 Object.defineProperty() 的用法：
+下面是 `Object.defineProperty()` 的用法：
 
 ```html
 <!DOCTYPE html>
@@ -99,7 +99,7 @@ Hello World
 < "666"
 ```
 
-- 如果有一个对象中多个属性需要转换 getter/setter 如何处理？
+- 如果有一个对象中多个属性需要转换 `getter/setter` 如何处理？
 
 我们应该遍历 `data` 中的属性，让每个属性都通过 `Object.defineProperty()` 方法转换成 `getter/setter`。
 
@@ -160,7 +160,7 @@ Hello World
   </html>
 ```
 
-在控制台运行代码 `vm.msg = '666'` 可以看到页面显示内容由原先的 `Hello World` 更新为 `666` 了。再次运行代码 `vm.count = '888'` 可以看到页面显示内容由 `666` 更新为 `888` 了。说明 data 中多个属性都被转换为 `getter/setter` 了。
+在控制台运行代码 `vm.msg = '666'` 可以看到页面显示内容由原先的 `Hello World` 更新为 `666` 了。再次运行代码 `vm.count = '888'` 可以看到页面显示内容由 `10` 更新为 `888` 了。说明 `data` 中多个属性都被转换为 `getter/setter` 了。
 
 ```bash
 # Console 控制台
@@ -171,6 +171,285 @@ Hello World
   set:  888
 < "888"
 ```
+
+### Vue 3.x
+
+- [MDN - Proxy](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Proxy)
+- 直接监听对象，而非属性。
+- ES6 中新增 Proxy，IE 不支持，性能由浏览器优化
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Proxy</title>
+</head>
+<body>
+  <div id="app">
+    hello
+  </div>
+  <script>
+    // 模拟 Vue 中的 data 选项
+    let data = {
+      msg: 'hello',
+      count: 0
+    }
+
+    // 模拟 Vue 实例
+    let vm = new Proxy(data, {
+      // 下面的 get / set 是执行代理行为的函数
+      // 当访问 vm 的成员会执行
+      get (target, key) {
+        console.log('get, key: ', key, target[key])
+        return target[key]
+      },
+      // 当设置 vm 的成员会执行
+      set (target, key, newValue) {
+        console.log('set, key: ', key, newValue)
+        if (target[key] === newValue) {
+          return
+        }
+        target[key] = newValue
+        document.querySelector('#app').textContent = target[key]
+      }
+    })
+
+    // 测试
+    vm.msg = 'Hello World'
+    console.log(vm.msg)
+  </script>
+</body>
+</html>
+```
+
+在浏览器打开上述 `html` 文件，可以看到控制台会依次输出：
+
+```bash
+# Console 控制台
+set, key:  msg Hello World
+get, key:  msg Hello World
+Hello World
+```
+
+在控制台运行代码 `vm.msg = '111'` 可以看到页面显示内容由原先的 `Hello World` 更新为 `111` 了。再次运行代码 `vm.count = '222'` 可以看到页面显示内容由 `111` 更新为 `222` 了。说明访问 data 的代理对象 vm 会触发 `getter/setter`。
+
+```bash
+# Console 控制台
+> vm.msg = '111'
+  set, key:  msg 111
+< "111"
+> vm.count = '222'
+  set, key:  count 222
+< "222"
+```
+
+使用 `Proxy` 要比使用 `Object.defineProperty()` 方法的代码要简洁得多。`Proxy` 代理的是整个对象，我们在访问代理对象的所有方法都会触发代理对象中的 `getter/setter` 方法。而使用 `Object.defineProperty()` 方法时需要对 `data` 对象进行循环，对每个属性进行进行 `Object.defineProperty()`。而且，`Proxy` 由浏览器进行性能优化，所以 `Proxy` 的性能会比 `Object.defineProperty()` 方法要好。
+
+## 发布订阅模式和观察者模式
+
+### 发布/订阅模式
+
+- 发布/订阅模式
+    - 订阅者
+    - 发布者
+    - 信号中心
+
+> 我们假定，存在一个"信号中心"，某个任务执行完成，就向信号中心"发布"（publish）一个信
+号，其他任务可以向信号中心"订阅"（subscribe）这个信号，从而知道什么时候自己可以开始执
+行。**这就叫做"发布/订阅模式"（publish-subscribe pattern）**
+
+- Vue 的自定义事件
+    - [Vue 的自定义事件](https://cn.vuejs.org/v2/guide/migration.html#dispatch-%E5%92%8C-broadcast-%E6%9B%BF%E6%8D%A2)
+
+```javascript
+let vm = new Vue()
+
+vm.$on('dataChange', () => {
+  console.log('dataChange')
+})
+
+vm.$on('dataChange', () => {
+  console.log('dataChange1')
+})
+
+vm.$emit('dataChange')
+```
+
+- 兄弟组件通信过程
+
+```javascript
+// eventBus.js 
+// 事件中心 
+let eventHub = new Vue() 
+// ComponentA.vue 
+// 发布者 
+addTodo: function () { 
+  // 发布消息(事件) 
+  eventHub.$emit('add-todo', { text: this.newTodoText })
+  this.newTodoText = '' 
+}
+
+// ComponentB.vue 
+// 订阅者 
+created: function () { 
+  // 订阅消息(事件) 
+  eventHub.$on('add-todo', this.addTodo) 
+}
+```
+
+- 模拟 Vue 自定义事件的实现
+
+分析：
+
+```javascript
+// Vue 自定义事件
+let vm = new Vue()
+// { 'click': [fn1, fn2], 'change': [fn] }
+
+// 注册事件(订阅消息)
+vm.$on('dataChange', () => {
+  console.log('dataChange')
+})
+
+vm.$on('dataChange', () => {
+  console.log('dataChange1')
+})
+// 触发事件(发布消息)
+vm.$emit('dataChange')
+```
+
+下面使用发布/订阅模式来模拟 `Vue` 中的事件机制。
+
+```javascript
+// 事件触发器
+class EventEmitter {
+  constructor () {
+    // { 'click': [fn1, fn2], 'change': [fn] }
+    this.subs = Object.create(null)
+  }
+
+  // 注册事件
+  $on (eventType, handler) {
+    this.subs[eventType] = this.subs[eventType] || []
+    this.subs[eventType].push(handler)
+  }
+
+  // 触发事件
+  $emit (eventType) {
+    if (this.subs[eventType]) {
+      this.subs[eventType].forEach(handler => {
+        handler()
+      })
+    }
+  }
+}
+
+// 测试
+let em = new EventEmitter()
+em.$on('click', () => {
+  console.log('click1')
+})
+em.$on('click', () => {
+  console.log('click2')
+})
+
+em.$emit('click')
+```
+
+运行代码，可以看到控制台打印：
+
+```bash
+# Console 控制台
+click1
+click2
+```
+
+上述的代码是模拟 `Vue` 自定义事件的实现机制，并没有体现发布者和订阅者，只体现了事件中心，也就是 `EventEmitter` 的实例对象。
+
+发布者和订阅者可以通过兄弟组件传值的方式来体会。
+
+### 观察者模式
+
+`Vue` 的响应式原理中使用了观察者模式，下面先了解一下观察者模式是如何实现的。
+
+观察者模式与发布订阅模式的区别是没有事件中心，只有发布者和订阅者，并且发布者要知道订阅者的存在。观察者模式中订阅者又叫观察者，发布者又叫目标。
+
+- **观察者(订阅者)** -- Watcher
+    - update()：每个观察者都有 update 方法，当事件发生时，会调用观察者的 update 方法，从而处理具体要做的事情
+- **目标(发布者)** -- Dep
+    - subs 数组：存储所有的观察者
+    - addSub()：添加观察者
+    - notify()：当事件发生，调用所有观察者的 update() 方法
+- **没有事件中心**
+
+> 关于为什么目标（发布者）用 Dep 表示而不是用更符合语义的 Target 来表示，Vue 内部使用了 Dep 这个单词是因为 Dep 是 dependency（依赖）的缩写。因为 Watcher 观察者（订阅者）需要依赖 Dep 才能了解数据的变化，没有 Dep，Watcher 根本不可能知道数据发生了变化，当有数据变化发生时，Dep 会通知 Watcher
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>观察者模式</title>
+</head>
+<body>
+  <script>
+    // 目标（发布者）
+    // Dependency
+    class Dep {
+      constructor () {
+        // 数组存储所有观察者
+        this.subs = []
+      }
+
+      // 添加观察者
+      addSub (sub) {
+        if (sub && sub.update) {
+          this.subs.push(sub)
+        }
+      }
+
+      // 通知所有观察者调用 upodate 方法
+      notify () {
+        this.subs.forEach(sub => {
+          sub.update()
+        })
+      }
+    }
+
+    // 观察者（订阅者）
+    class Watcher {
+      update () {
+        console.log('update')
+      }
+    }
+
+    // 测试订阅者模式
+    let dep = new Dep()
+    let watcher1 = new Watcher()
+    let watcher2 = new Watcher()
+    dep.addSub(watcher1)
+    dep.addSub(watcher2)
+    dep.notify()
+    
+  </script>
+</body>
+</html>
+```
+
+### 总结
+
+- **观察者模式** 是由具体目标调度，比如当事件触发，Dep 就会去调用观察者的方法，所以观察者模式的订阅者和发布者之间是存在依赖的
+- **发布/订阅模式** 由统一调度中心（事件中心）调用，因此发布者和订阅者不需要知道对方的存在
+
+> 事件中心隔离了发布者和订阅者,，去除它们之间的相互依赖。观察者模式中，目标与观察者是相互依赖的，而发布订阅模式中，多了个事件中心。事件中心是隔离发布者和订阅者的，减少发布者和订阅者的依赖关系，会变得更加灵活。
+
+![image.png](https://i.loli.net/2020/10/20/iTyUXPoObhHunaZ.png)
+
+## Vue 响应式原理模拟
 
 ### 整体分析
 
@@ -216,17 +495,17 @@ Hello World
 
 在 `Console` 控制台打印上面代码的 `Vue` 实例对象，可以看到实例的成员非常多，我们只需关注需要模拟的成员即可。
 
-除了 msg 和 count，拉到下面还看到了 msg 和 count 还具有 getter/setter，所以可知 Vue 内部会把 data 中的成员转化为 getter/setter，注入到 Vue 实例中，这样做的目的是在其他地方使用的时候可以通过 this.msg 和 this.count 这样的方式来使用。
+除了 `msg` 和 `count`，拉到下面还看到了 `msg` 和 `count` 还具有 `getter/setter`，所以可知 `Vue` 内部会把 `data` 中的成员转化为 `getter/setter`，注入到 `Vue` 实例中，这样做的目的是在其他地方使用的时候可以通过 `this.msg` 和 `this.count` 这样的方式来使用。
 
-msg 和 count 下面是 $data，data 中的成员被记录到了 $data 中，并且转换成了 getter/setter。$data 中的 setter 是真正监视数据变化的地方。
+`msg` 和 `count` 下面是 `$data`，`data` 中的成员被记录到了 `$data` 中，并且转换成了 `getter/setter`。`$data` 中的 `setter` 是真正监视数据变化的地方。
 
-再往下是 $options，可以简单认为把构造函数的参数记录到了 $options 中。
+再往下是 `$options`，可以简单认为把构造函数的参数记录到了 `$options` 中。
 
-再继续往下看可以看到 _data，_data 和 $data 指向的是同一个对象。_ 开头的是私有成员，$ 开头的是公共成员。我们只需要模拟 $data 即可。
+再继续往下看可以看到 `_data`，`_data` 和 `$data` 指向的是同一个对象。`_` 开头的是私有成员，`$` 开头的是公共成员，我们只需要模拟 `$data` 即可。
 
-紧跟着的是 $el，对应着 Vue 选项中的 el。设置 el 选项的时候，可以是一个选择器，也可以是一个 DOM 对象。如果是一个选择器，Vue 构造函数内部需要把这个选择器转换成对应的 DOM 对象。
+紧跟着的是 `$el`，对应着 `Vue` 选项中的 `el`。设置 `el` 选项的时候，可以是一个选择器，也可以是一个 `DOM` 对象。如果是一个选择器，`Vue` 构造函数内部需要把这个选择器转换成对应的 `DOM` 对象。
 
-下面实现最小版本的 Vue 需要模拟 Vue 实例中的下列成员：
+下面实现最小版本的 `Vue` 需要模拟 `Vue` 实例中的下列成员：
 
 ```bash
 $data
@@ -234,7 +513,7 @@ $el
 $options
 ```
 
-还要把 data 中的成员注入到 Vue 实例中来。
+还要把 `data` 中的成员注入到 `Vue` 实例中来。
 
 #### 整体结构
 
@@ -358,15 +637,15 @@ index.html
     <input type="text" v-model="count">
   </div>
 + <script src="./js/vue.js"></script>
-+ <script>
-+   let vm = new Vue({
-+     el: '#app',
-+     data: {
-+       msg: 'Hello Vue',
-+       count: 1
-+     }
-+   })
-+ </script>
+  <script>
+    let vm = new Vue({
+      el: '#app',
+      data: {
+        msg: 'Hello Vue',
+        count: 1
+      }
+    })
+  </script>
 </body>
 </html>
 ```
@@ -1438,3 +1717,36 @@ Dep.target = null
 ```
 
 上述代码就实现了双向绑定机制了。
+
+### 总结
+
+- 问题
+    - 给属性重新赋值成对象，是否是响应式的？答：是响应式的，因为会在 `setter` 的时候调用 `this.walk` 方法从而调用 `defineReactive` 方法
+    - 给 `Vue` 实例新增一个成员是否是响应式的？答：非响应式的，因为响应式数据转换是在 `new Vue` 实例对象的时候完成的
+        - `Vue.set(object, propertyName, value)` 和 `this.$set(object, propertyName, value)` 内部使用了 `defineReactive` 方法将数据定义为响应式数据
+- 通过下图回顾整体流程
+
+![image](https://s3.ax1x.com/2020/12/19/rN48Df.png)
+
+- Vue
+    - 记录传入的选项，设置 `$data/$el`
+    - 把 `data` 的成员注入到 `Vue` 实例
+    - 负责调用 `Observer` 实现数据响应式处理（数据劫持）
+    - 负责调用 `Compiler` 编译指令/插值表达式等
+- Observer
+    - 数据劫持
+    - 负责把 `data` 中的成员转换成 `getter/setter`
+    - 负责把多层属性转换成 `getter/setter`
+    - 如果给属性赋值为新对象，把新对象的成员设置为 `getter/setter`
+    - 添加 `Dep` 和 `Watcher` 的依赖关系
+    - 数据变化发送通知
+- Compiler
+    - 负责编译模板，解析指令/插值表达式
+    - 负责页面的首次渲染过程
+    - 当数据变化后重新渲染
+- Dep
+    - 收集依赖，添加订阅者(`watcher`)
+    - 通知所有订阅者
+- Watcher
+    - 自身实例化的时候往 `dep` 对象中添加自己
+    - 当数据变化 `dep` 通知所有的 `Watcher` 实例更新视图
