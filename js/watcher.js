@@ -27,6 +27,8 @@
       if (this.oldValue === newValue) {
         return
       }
+      // 此时的新值变成下一次比较的旧值
+      this.oldValue = newValue
       // 调用回调函数更新视图
       this.cb(newValue)
     }

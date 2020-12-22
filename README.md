@@ -1450,6 +1450,8 @@ class Watcher {
     if (this.oldValue === newValue) {
       return
     }
+    // 此时的新值变成下一次比较的旧值
+    this.oldValue = newValue
     // 调用回调函数更新视图
     this.cb(newValue)
   }
@@ -1491,6 +1493,8 @@ class Watcher {
       if (this.oldValue === newValue) {
         return
       }
+      // 此时的新值变成下一次比较的旧值
+      this.oldValue = newValue
       // 调用回调函数更新视图
       this.cb(newValue)
     }
@@ -1640,7 +1644,7 @@ Dep.target = null
   }
 ```
 
-将 dep.js 和 watcher.js 引入 html 中：
+将 `dep.js` 和 `watcher.js` 引入 `html` 中：
 
 ```diff
   <!-- index.html -->
